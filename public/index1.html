@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Treasure Hunter: Skill Challenge</title>
+    <style>
+        body { background: #0f172a; color: #f8fafc; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        
+        #gameGrid { display: grid; grid-template-columns: repeat(3, 120px); grid-gap: 15px; background: #1e293b; padding: 25px; border-radius: 20px; border: 4px solid #38bdf8; position: relative; box-shadow: 0 0 20px rgba(56, 189, 248, 0.2); }
+        
+        .hole { width: 120px; height: 120px; background: #334155; border-radius: 50%; position: relative; overflow: hidden; border: 4px solid #0f172a; }
+        
+        .orb { width: 85px; height: 85px; background: radial-gradient(circle at 30% 30%, #4cc9f0, #4361ee); border-radius: 50%; position: absolute; top: 120px; left: 18px; transition: top 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; box-shadow: 0 0 15px #4cc9f0; }
+        
+        .orb.up { top: 18px; }
+
+        #taskOverlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 100; flex-direction: column; align-items: center; justify-content: center; border-radius: 15px; }
+        .card { background: #ffffff; color: #1e293b; padding: 30px; border-radius: 15px; width: 85%; text-align: center; }
+        
+        button { padding: 12px 24px; margin: 8px; cursor: pointer; border: none; border-radius: 8px; background: #4361ee; color: white; font-weight: bold; font-size: 16px; transition: 0.2s; }
+        button:hover { background: #3a0ca3; transform: scale(1.05); }
+        
+        #stats { margin-bottom: 15px; font-weight: bold; width: 420px; display: flex; justify-content: space-between; color: #38bdf8; font-size: 18px; }
+        .energy-icon { color: #4cc9f0; letter-spacing: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="stats">
+        <span>Energy: <span class="energy-icon">⚡⚡</span></span>
+        <span>Treasure: <span id="score">0</span></span>
+    </div>
+
+    <div id="gameGrid">
+        <div class="hole"><div class="orb"></div></div>
+        <div class="hole"><div class="orb"></div></div>
+        <div class="hole"><div class="orb"></div></div>
+        <div class="hole"><div class="orb"></div></div>
+        <div class="hole"><div class="orb"></div></div>
+        <div class="hole"><div class="orb"></div></div>
+
+        <div id="taskOverlay">
+            <div class="card">
+                <h2 id="statusTitle" style="color:#4361ee">SYSTEM REBOOT</h2>
+                <p id="questionText" style="font-size: 18px;">Solve to continue your hunt:</p>
+                <div id="answerButtons"></div>
+                
+                <div id="finalScreen" style="display:none;">
+                    <h2 style="color:#4cc9f0">CHALLENGE COMPLETE!</h2>
+                    <p id="reportText" style="line-height: 1.6; font-size: 18px;"></p>
+                    <button onclick="location.reload()" style="background:#1e293b">Play Again</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const orbs = document.querySelectorAll('.orb');
+        const overlay = document.getElementById('taskOverlay');
+        const qText = document.getElementById('questionText');
+        const btns = document.getElementById('answerButtons');
+        const scoreDisplay = document.getElementById('score');
+        const energyDisplay = document.querySelector('.energy-icon');
+
+        let lastHole, isPaused = false, score = 0, energy = 2, missedCount = 0, peepTime = 1100;
+
+        function randomHole(holes) {
+            const idx = Math.floor(Math.random() * holes.length);
+            const hole = holes[idx];
+            if (hole === lastHole) return randomHole(holes);
+            lastHole = hole;
+            return hole;
+        }
+
+        function peep() {
+            if (isPaused) return;
+            const orb = randomHole(orbs);
+            orb.classList.add('up');
+            
+            let hit = false;
+            orb.onclick = () => {
+                if(!hit && !isPaused) {
+                    score++;
+                    scoreDisplay.innerText = score;
+                    hit = true;
+                    orb.classList.remove('up');
+                }
+            };
+
+            setTimeout(() => {
+                if (!hit && !isPaused) {
+                    missedCount++;
+                    if (missedCount >= 3) {
+                        missedCount = 0;
+                        handleEnergyLoss();
+                    }
+                }
+                orb.classList.remove('up');
+                if (!isPaused) peep();
+                if (peepTime > 500) peepTime -= 10; 
+            }, peepTime);
+        }
+
+        const logicPuzzles = [
+            { q: "Logic: Which fits the pattern? <br> ◯, ◯, ▢, ◯, ◯, ?", o: ["▢", "◯"], a: "▢" },
+            { q: "Math: 15 + 15 = ?", o: ["30", "20"], a: "30" },
+            { q: "Visual: Is 'M' the same as 'W'?", o: ["Yes", "No"], a: "No" }
+        ];
+
+        function handleEnergyLoss() {
+            isPaused = true;
+            energy--;
+            energyDisplay.innerText = "⚡".repeat(energy) + (energy < 2 ? "⚪" : "");
+            overlay.style.display = "flex";
+            showPuzzle();
+        }
+
+        function showPuzzle() {
+            const p = logicPuzzles[Math.floor(Math.random() * logicPuzzles.length)];
+            qText.innerHTML = p.q;
+            btns.innerHTML = "";
+            p.o.forEach(opt => {
+                const b = document.createElement('button');
+                b.innerText = opt;
+                b.onclick = () => {
+                    if (energy > 0) {
+                        overlay.style.display = "none";
+                        isPaused = false;
+                        peep();
+                    } else {
+                        showFinalStats();
+                    }
+                };
+                btns.appendChild(b);
+            });
+        }
+
+        function showFinalStats() {
+            btns.style.display = "none";
+            qText.style.display = "none";
+            document.getElementById('statusTitle').style.display = "none";
+            document.getElementById('finalScreen').style.display = "block";
+            
+            document.getElementById('reportText').innerHTML = `
+                <b>Final Score:</b> ${score}<br>
+                <b>Rank:</b> ${score > 25 ? 'Legendary Hunter' : 'Elite Scout'}<br>
+                <b>Performance:</b> 100% Efficiency<br><br>
+                Outstanding work! Your reaction time and logic skills are top-tier.
+            `;
+        }
+
+        peep();
+    </script>
+</body>
+</html>

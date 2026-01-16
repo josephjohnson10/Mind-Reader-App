@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Warp-Gate Explorer</title>
+    <style>
+        body { margin: 0; background: #050505; overflow: hidden; color: #fff; font-family: 'Courier New', Courier, monospace; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; font-size: 18px; background: rgba(0,0,0,0.5); padding: 10px; border: 1px solid #0ff; }
+        canvas { display: block; margin: auto; background: radial-gradient(circle, #1b2735 0%, #090a0f 100%); }
+        .fuel-bar { width: 200px; height: 15px; border: 1px solid #fff; margin-top: 5px; }
+        #fuel-fill { width: 100%; height: 100%; background: #0f0; transition: width 0.3s; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    Warp Gates: <span id="gates">0</span> / 3<br>
+    FUEL SYSTEM:
+    <div class="fuel-bar"><div id="fuel-fill"></div></div>
+</div>
+<canvas id="spaceCanvas" width="600" height="700"></canvas>
+
+<script>
+const canvas = document.getElementById("spaceCanvas");
+const ctx = canvas.getContext("2d");
+
+/* GAME STATE */
+let fuel = 100;
+let gatesPassed = 0;
+let gameActive = true;
+let gamePaused = false;
+let gameWon = false;
+
+/* PLAYER SHIP */
+const ship = {
+    x: 275,
+    y: 550,
+    w: 50,
+    h: 60,
+    speed: 7
+};
+
+let asteroids = [];
+let warpGates = [];
+const keys = {};
+
+window.onkeydown = (e) => keys[e.code] = true;
+window.onkeyup = (e) => keys[e.code] = false;
+
+function spawnObjects() {
+    // Spawn Asteroids
+    if (Math.random() < 0.03) {
+        asteroids.push({
+            x: Math.random() * (canvas.width - 40),
+            y: -50,
+            w: 40 + Math.random() * 30,
+            h: 40 + Math.random() * 30,
+            speed: 3 + Math.random() * 3
+        });
+    }
+    // Spawn Warp Gates
+    if (Math.random() < 0.005 && warpGates.length === 0 && gatesPassed < 3) {
+        warpGates.push({
+            x: 0,
+            y: -100,
+            w: canvas.width,
+            h: 40,
+            speed: 2
+        });
+    }
+}
+
+function askQuestion() {
+    const n1 = Math.floor(Math.random() * 15) + 2;
+    const n2 = Math.floor(Math.random() * 15) + 2;
+    const ops = ['+', '-', '*'];
+    const op = ops[Math.floor(Math.random() * ops.length)];
+    let correct;
+    if(op === '+') correct = n1 + n2;
+    if(op === '-') correct = n1 - n2;
+    if(op === '*') correct = n1 * n2;
+
+    const ans = prompt(`WARP-GATE STABILIZING... \nWhat is ${n1} ${op} ${n2}?`);
+    return parseInt(ans) === correct;
+}
+
+function update() {
+    if (!gameActive || gamePaused || gameWon) return;
+
+    // Movement
+    if (keys["ArrowLeft"] && ship.x > 0) ship.x -= ship.speed;
+    if (keys["ArrowRight"] && ship.x < canvas.width - ship.w) ship.x += ship.speed;
+
+    // Fuel Consumption
+    fuel -= 0.08;
+    document.getElementById("fuel-fill").style.width = fuel + "%";
+    if (fuel <= 0) gameActive = false;
+
+    // Asteroids Logic
+    asteroids.forEach((ast, i) => {
+        ast.y += ast.speed;
+        if (checkColl(ship, ast)) {
+            fuel -= 15;
+            asteroids.splice(i, 1);
+            if (fuel <= 0) gameActive = false;
+        }
+    });
+
+    // Warp Gate Logic
+    warpGates.forEach((gate, i) => {
+        gate.y += gate.speed;
+        if (checkColl(ship, gate)) {
+            gamePaused = true;
+            warpGates.splice(i, 1);
+            setTimeout(() => {
+                if (askQuestion()) {
+                    gatesPassed++;
+                    fuel = Math.min(100, fuel + 40); // Reward fuel
+                    document.getElementById("gates").innerText = gatesPassed;
+                    if (gatesPassed >= 3) gameWon = true;
+                } else {
+                    fuel -= 20; // Penalty
+                }
+                gamePaused = false;
+            }, 100);
+        }
+    });
+
+    spawnObjects();
+    asteroids = asteroids.filter(a => a.y < canvas.height);
+}
+
+function checkColl(r1, r2) {
+    return r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Stars background effect
+    ctx.fillStyle = "#fff";
+    for(let i=0; i<10; i++) ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
+
+    // Ship
+    ctx.fillStyle = "#0ff";
+    ctx.beginPath();
+    ctx.moveTo(ship.x + ship.w/2, ship.y);
+    ctx.lineTo(ship.x, ship.y + ship.h);
+    ctx.lineTo(ship.x + ship.w, ship.y + ship.h);
+    ctx.closePath();
+    ctx.fill();
+    // Engine Flame
+    ctx.fillStyle = "orange";
+    ctx.fillRect(ship.x + ship.w/2 - 5, ship.y + ship.h, 10, 10 + Math.random()*10);
+
+    // Asteroids
+    ctx.fillStyle = "#777";
+    asteroids.forEach(ast => {
+        ctx.beginPath();
+        ctx.rect(ast.x, ast.y, ast.w, ast.h);
+        ctx.fill();
+        ctx.strokeStyle = "#444";
+        ctx.stroke();
+    });
+
+    // Warp Gates
+    ctx.strokeStyle = "#b0f";
+    ctx.lineWidth = 5;
+    warpGates.forEach(gate => {
+        ctx.strokeRect(gate.x, gate.y, gate.w, gate.h);
+        ctx.fillStyle = "rgba(180, 0, 255, 0.2)";
+        ctx.fillRect(gate.x, gate.y, gate.w, gate.h);
+    });
+
+    if (!gameActive || gameWon) {
+        ctx.fillStyle = "rgba(0,0,0,0.8)";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.font = "30px Arial";
+        ctx.fillText(gameWon ? "CELESTIAL VICTORY!" : "STRANDED IN SPACE", 300, 300);
+        ctx.font = "18px Arial";
+        ctx.fillText("Refresh to Restart Mission", 300, 350);
+    }
+}
+
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>

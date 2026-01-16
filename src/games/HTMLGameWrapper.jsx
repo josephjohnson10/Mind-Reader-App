@@ -165,6 +165,9 @@ const HTMLGameWrapper = ({ gameId, htmlContent, nextGame }) => {
     };
 
     const handleQuestionAnswer = (answer) => {
+        if (!questions[currentQuestionIndex]) return; // Safety check
+        if (selectedAnswer !== null) return; // Prevent multiple clicks
+        
         const question = questions[currentQuestionIndex];
         const timeSpent = (Date.now() - question.startTime) / 1000;
         const isCorrect = answer === question.answer;
@@ -183,28 +186,38 @@ const HTMLGameWrapper = ({ gameId, htmlContent, nextGame }) => {
         
         recordGameAttempt(gameId, question.taskType, adjustedDifficulty, isCorrect, timeSpent);
         
+        // Immediately update selectedAnswer to disable buttons
         setSelectedAnswer(answer);
         
+        // Determine next action immediately
+        const isLastQuestion = currentQuestionIndex >= questions.length - 1;
+        
         setTimeout(() => {
-            if (currentQuestionIndex < questions.length - 1) {
-                const nextIndex = currentQuestionIndex + 1;
-                // Set start time for next question
-                setQuestions(q => {
-                    const updated = [...q];
-                    if (updated[nextIndex]) {
-                        updated[nextIndex].startTime = Date.now();
-                    }
-                    return updated;
-                });
-                setCurrentQuestionIndex(nextIndex);
-                setSelectedAnswer(null);
-            } else {
+            if (isLastQuestion) {
                 // All questions answered, proceed to next game
                 setShowFailQuestions(false);
                 setQuestions([]);
                 setCurrentQuestionIndex(0);
                 setSelectedAnswer(null);
-                setTimeout(() => navigate(`/play/${nextGame}`), 1000);
+                setTimeout(() => {
+                    if (nextGame) {
+                        navigate(`/play/${nextGame}`);
+                    }
+                }, 500);
+            } else {
+                // Move to next question
+                const nextIndex = currentQuestionIndex + 1;
+                if (questions[nextIndex]) {
+                    // Update both question index and reset selected answer together
+                    setCurrentQuestionIndex(nextIndex);
+                    setSelectedAnswer(null);
+                    // Set start time for next question
+                    setQuestions(q => {
+                        const updated = [...q];
+                        updated[nextIndex].startTime = Date.now();
+                        return updated;
+                    });
+                }
             }
         }, 1500);
     };

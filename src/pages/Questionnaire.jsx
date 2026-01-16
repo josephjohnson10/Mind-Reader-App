@@ -59,12 +59,14 @@ const Questionnaire = () => {
 
     const [answers, setAnswers] = useState({});
     const [currentStep, setCurrentStep] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleAnswer = (val) => {
         setAnswers(prev => ({ ...prev, [questions[currentStep].id]: val }));
         if (currentStep < questions.length - 1) {
             setCurrentStep(prev => prev + 1);
         } else {
+            setIsLoading(true);
             finishAssessment();
         }
     };
@@ -86,59 +88,74 @@ const Questionnaire = () => {
             console.warn("submitQuestionnaire not found in context");
         }
 
-        navigate('/play/void-challenge');
+        // Add 2 second delay with loading message before first game
+        setTimeout(() => {
+            navigate('/play/void-challenge');
+        }, 2000);
     };
 
     const progress = ((currentStep) / questions.length) * 100;
 
     return (
         <div className="min-h-screen bg-black text-white p-8 flex flex-col items-center justify-center">
-            <div className="w-full max-w-2xl">
-                <header className="mb-12 text-center">
-                    <h1 className="text-3xl font-bold mb-2 neon-text">Preliminary Screening</h1>
-                    <p className="text-gray-400">Answer truthfully for accurate calibration.</p>
-                </header>
+            {isLoading ? (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center"
+                >
+                    <div className="w-24 h-24 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                    <h2 className="text-3xl font-bold mb-3 neon-text">Preparing Assessment...</h2>
+                    <p className="text-gray-400 text-lg">Loading your first challenge</p>
+                </motion.div>
+            ) : (
+                <div className="w-full max-w-2xl">
+                    <header className="mb-12 text-center">
+                        <h1 className="text-3xl font-bold mb-2 neon-text">Preliminary Screening</h1>
+                        <p className="text-gray-400">Answer truthfully for accurate calibration.</p>
+                    </header>
 
-                <div className="glass-panel p-8 rounded-3xl relative overflow-hidden min-h-[400px] flex flex-col justify-between">
-                    {/* Progress Bar */}
-                    <div className="absolute top-0 left-0 w-full h-2 bg-white/10">
-                        <motion.div
-                            className="h-full bg-primary"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${progress}%` }}
-                        />
-                    </div>
+                    <div className="glass-panel p-8 rounded-3xl relative overflow-hidden min-h-[400px] flex flex-col justify-between">
+                        {/* Progress Bar */}
+                        <div className="absolute top-0 left-0 w-full h-2 bg-white/10">
+                            <motion.div
+                                className="h-full bg-primary"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${progress}%` }}
+                            />
+                        </div>
 
-                    <div className="mt-8">
-                        <span className="text-primary text-sm font-mono tracking-widest uppercase mb-4 block">
-                            Item {currentStep + 1} / {questions.length}
-                        </span>
+                        <div className="mt-8">
+                            <span className="text-primary text-sm font-mono tracking-widest uppercase mb-4 block">
+                                Item {currentStep + 1} / {questions.length}
+                            </span>
 
-                        <h2 className="text-2xl font-medium leading-relaxed">
-                            {questions[currentStep].text}
-                        </h2>
+                            <h2 className="text-2xl font-medium leading-relaxed">
+                                {questions[currentStep].text}
+                            </h2>
 
-                        <div className="mt-2 text-sm text-gray-500 uppercase tracking-wide">
-                            Focus: {questions[currentStep].category}
+                            <div className="mt-2 text-sm text-gray-500 uppercase tracking-wide">
+                                Focus: {questions[currentStep].category}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mt-12">
+                            <button
+                                onClick={() => handleAnswer('no')}
+                                className="py-4 rounded-xl border border-white/20 hover:bg-white/10 transition-colors text-lg"
+                            >
+                                No / Rarely
+                            </button>
+                            <button
+                                onClick={() => handleAnswer('yes')}
+                                className="py-4 rounded-xl bg-primary hover:bg-primary-hover transition-colors text-lg font-bold shadow-[0_0_20px_rgba(79,70,229,0.3)]"
+                            >
+                                Yes / Often
+                            </button>
                         </div>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-4 mt-12">
-                        <button
-                            onClick={() => handleAnswer('no')}
-                            className="py-4 rounded-xl border border-white/20 hover:bg-white/10 transition-colors text-lg"
-                        >
-                            No / Rarely
-                        </button>
-                        <button
-                            onClick={() => handleAnswer('yes')}
-                            className="py-4 rounded-xl bg-primary hover:bg-primary-hover transition-colors text-lg font-bold shadow-[0_0_20px_rgba(79,70,229,0.3)]"
-                        >
-                            Yes / Often
-                        </button>
-                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

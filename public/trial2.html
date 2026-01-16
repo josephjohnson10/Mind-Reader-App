@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Quest: Progression</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card-back: #1e293b;
+            --card-front: #38bdf8;
+            --accent: #f43f5e;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .header { text-align: center; margin-bottom: 20px; }
+        .stats-container { display: flex; gap: 30px; font-size: 1.2rem; margin-bottom: 10px; }
+        .highlight { color: var(--accent); font-weight: bold; }
+
+        .grid {
+            display: grid;
+            gap: 10px;
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 12px;
+        }
+
+        .card {
+            width: 70px;
+            height: 70px;
+            background-color: var(--card-back);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .card.hidden { color: transparent; }
+        .card.matched { opacity: 0.3; cursor: default; }
+
+        /* Modal */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            border: 2px solid var(--accent);
+            max-width: 400px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Memory Quest</h1>
+        <div class="stats-container">
+            <div>Level: <span id="level-display" class="highlight">3x3</span></div>
+            <div>Lives: <span id="lives-display" class="highlight">10</span></div>
+        </div>
+    </div>
+
+    <div class="grid" id="game-grid"></div>
+
+    <div id="modal">
+        <div class="modal-content">
+            <h2>Refuel!</h2>
+            <p id="question-text">Loading question...</p>
+            <div id="options"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentSize = 3;
+        let lives = 10;
+        let mistakesInLevel = 0;
+        let flipped = [];
+        let matchedCount = 0;
+        let isProcessing = false;
+
+        const icons = ['💾', '💻', '🔌', '🖱️', '📱', '🕹️', '📡', '💡', '🔋', '⚙️', '🔒', '🔑', '📁', '📊', '🌐', '🚀', '🤖', '👾'];
+
+        const questions = [
+            { q: "Which one is a Linear Data Structure?", a: ["Stack", "Tree"], correct: "Stack" },
+            { q: "Logic Gate that outputs 1 only if both inputs are 1?", a: ["OR", "AND"], correct: "AND" },
+            { q: "Memory that is volatile?", a: ["ROM", "RAM"], correct: "RAM" }
+        ];
+
+        function initLevel() {
+            const grid = document.getElementById('game-grid');
+            const totalTiles = currentSize * currentSize;
+            const pairsNeeded = Math.floor(totalTiles / 2);
+            
+            let levelIcons = [];
+            for(let i=0; i<pairsNeeded; i++) {
+                levelIcons.push(icons[i % icons.length], icons[i % icons.length]);
+            }
+            if(totalTiles % 2 !== 0) levelIcons.push('⭐'); // Odd tile for 3x3, 5x5
+
+            levelIcons.sort(() => Math.random() - 0.5);
+
+            grid.style.gridTemplateColumns = `repeat(${currentSize}, 70px)`;
+            grid.innerHTML = '';
+            matchedCount = 0;
+
+            levelIcons.forEach((icon, i) => {
+                const div = document.createElement('div');
+                div.className = 'card hidden';
+                div.textContent = icon;
+                div.onclick = () => handleFlip(div);
+                grid.appendChild(div);
+            });
+            
+            document.getElementById('level-display').innerText = `${currentSize}x${currentSize}`;
+        }
+
+        function handleFlip(card) {
+            if (isProcessing || flipped.includes(card) || card.classList.contains('matched')) return;
+
+            card.classList.remove('hidden');
+            flipped.push(card);
+
+            if (flipped.length === 2) {
+                isProcessing = true;
+                setTimeout(checkMatch, 600);
+            }
+        }
+
+        function checkMatch() {
+            const [c1, c2] = flipped;
+            if (c1.textContent === c2.textContent) {
+                c1.classList.add('matched');
+                c2.classList.add('matched');
+                matchedCount += 2;
+                checkWin();
+            } else {
+                c1.classList.add('hidden');
+                c2.classList.add('hidden');
+                lives--;
+                mistakesInLevel++;
+                updateStats();
+
+                if (lives <= 0) {
+                    alert("Game Over! You ran out of lives.");
+                    location.reload();
+                    return;
+                }
+                if (mistakesInLevel % 2 === 0) showModal();
+            }
+            flipped = [];
+            isProcessing = false;
+        }
+
+        function checkWin() {
+            const totalTiles = currentSize * currentSize;
+            const winTarget = (totalTiles % 2 === 0) ? totalTiles : totalTiles - 1;
+            
+            if (matchedCount >= winTarget) {
+                setTimeout(() => {
+                    if (currentSize < 6) {
+                        alert(`Level Cleared! Moving to ${currentSize + 1}x${currentSize + 1}`);
+                        currentSize++;
+                        initLevel();
+                    } else {
+                        alert("Congratulations! You mastered all levels!");
+                    }
+                }, 500);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('lives-display').innerText = lives;
+        }
+
+        function showModal() {
+            const modal = document.getElementById('modal');
+            const qObj = questions[Math.floor(Math.random() * questions.length)];
+            document.getElementById('question-text').innerText = qObj.q;
+            const optionsDiv = document.getElementById('options');
+            optionsDiv.innerHTML = '';
+            
+            qObj.a.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.innerText = opt;
+                btn.onclick = () => {
+                    if (opt === qObj.correct) {
+                        lives += 2;
+                        alert("Correct! +2 Lives.");
+                    } else {
+                        alert("Incorrect. No lives added.");
+                    }
+                    updateStats();
+                    modal.style.display = 'none';
+                };
+                optionsDiv.appendChild(btn);
+            });
+            modal.style.display = 'flex';
+        }
+
+        initLevel();
+    </script>
+</body>
+</html>

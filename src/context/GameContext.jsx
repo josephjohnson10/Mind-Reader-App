@@ -87,6 +87,35 @@ export const GameProvider = ({ children }) => {
             ...prev,
             questionnaire: { completed: true, analysis }
         }));
+        
+        // Add initial risk from questionnaire responses (cap at 80%)
+        setLearningDisabilityRisk(prevRisk => {
+            const updated = { ...prevRisk };
+            
+            // Each "yes" answer adds base risk
+            if (analysis.dyslexiaScore >= 2) {
+                updated.dyslexia = Math.min(updated.dyslexia + 25, 80);
+            } else if (analysis.dyslexiaScore >= 1) {
+                updated.dyslexia = Math.min(updated.dyslexia + 15, 80);
+            }
+            
+            if (analysis.dyscalculiaScore >= 2) {
+                updated.dyscalculia = Math.min(updated.dyscalculia + 25, 80);
+            } else if (analysis.dyscalculiaScore >= 1) {
+                updated.dyscalculia = Math.min(updated.dyscalculia + 15, 80);
+            }
+            
+            if (analysis.adhdScore >= 2) {
+                updated.adhd = Math.min(updated.adhd + 25, 80);
+            } else if (analysis.adhdScore >= 1) {
+                updated.adhd = Math.min(updated.adhd + 15, 80);
+            }
+            
+            const maxRisk = Math.max(updated.dyslexia, updated.dyscalculia, updated.adhd);
+            updated.overall = maxRisk < 25 ? 'Low' : maxRisk < 50 ? 'Medium' : 'High';
+            
+            return updated;
+        });
     };
 
     const updateProfile = (name, age) => {
@@ -150,6 +179,8 @@ export const GameProvider = ({ children }) => {
                     played: true,
                     score: resultData.score,
                     grade: resultData.grade,
+                    correct: resultData.correct || 0,
+                    incorrect: resultData.incorrect || 0,
                     riskLevel: resultData.riskLevel || 'Low',
                     riskScore: resultData.riskScore || 0,
                     feedback: resultData.feedback || '',
@@ -162,20 +193,75 @@ export const GameProvider = ({ children }) => {
                 }
             };
 
-            // After updating game stats, check if attention games show high performance
-            // and reduce ADHD risk accordingly
-            if (gameId === 'focusFlight' || gameId === 'voidChallenge') {
-                const focusScore = gameId === 'focusFlight' ? resultData.score : prev.focusFlight.score;
-                const voidScore = gameId === 'voidChallenge' ? resultData.score : prev.voidChallenge.score;
-                
-                if (focusScore > 300 || voidScore > 200) {
-                    // High attention performance detected - reduce ADHD risk
-                    setLearningDisabilityRisk(prevRisk => ({
-                        ...prevRisk,
-                        adhd: Math.min(prevRisk.adhd, 20) // Cap at 20% if attention is good
-                    }));
+            // Calculate comprehensive risk based on game performance
+            const { score, grade, correct, incorrect } = resultData;
+            
+            // Base risk calculation from game performance
+            let gameRisk = 0;
+            
+            // Grade-based risk (max 80%)
+            if (grade === 'F') gameRisk = 60;
+            else if (grade === 'C') gameRisk = 40;
+            else if (grade === 'B') gameRisk = 20;
+            else if (grade === 'A') gameRisk = 10;
+            else if (grade === 'S') gameRisk = 5;
+            
+            // Adjust by accuracy if available
+            if (correct !== undefined && incorrect !== undefined) {
+                const total = correct + incorrect;
+                if (total > 0) {
+                    const accuracy = correct / total;
+                    if (accuracy < 0.3) gameRisk += 20;
+                    else if (accuracy < 0.5) gameRisk += 15;
+                    else if (accuracy < 0.7) gameRisk += 10;
                 }
             }
+            
+            // Score-based adjustment
+            if (score < 50) gameRisk += 15;
+            else if (score < 100) gameRisk += 10;
+            else if (score < 150) gameRisk += 5;
+            
+            // Apply game-specific risk to appropriate disorders (cap at 80%)
+            setLearningDisabilityRisk(prevRisk => {
+                const updated = { ...prevRisk };
+                
+                // Map games to disorder types
+                if (gameId === 'lexicalLegends' || gameId === 'treasureHunter') {
+                    updated.dyslexia = Math.min(updated.dyslexia + gameRisk, 80);
+                } else if (gameId === 'numberNinja' || gameId === 'defenderChallenge') {
+                    updated.dyscalculia = Math.min(updated.dyscalculia + gameRisk, 80);
+                } else if (gameId === 'spatialRecall' || gameId === 'memoryQuest') {
+                    updated.dysgraphia = Math.min(updated.dysgraphia + gameRisk, 80);
+                } else if (gameId === 'focusFlight' || gameId === 'voidChallenge') {
+                    // Attention games - LOW score = HIGH ADHD risk
+                    if (score < 200) {
+                        updated.adhd = Math.min(updated.adhd + gameRisk, 80);
+                    } else if (score > 300) {
+                        // HIGH attention score = REDUCE ADHD
+                        updated.adhd = Math.min(updated.adhd, 15);
+                    }
+                } else if (gameId === 'matrixReasoning' || gameId === 'warpExplorer') {
+                    // Logic/reasoning affects multiple areas
+                    updated.dyslexia = Math.min(updated.dyslexia + gameRisk * 0.3, 80);
+                    updated.dyscalculia = Math.min(updated.dyscalculia + gameRisk * 0.3, 80);
+                } else if (gameId === 'bridgeGame') {
+                    updated.dyspraxia = Math.min((updated.dyspraxia || 0) + gameRisk, 80);
+                }
+                
+                // Calculate overall risk
+                const maxRisk = Math.max(
+                    updated.dyslexia, 
+                    updated.dyscalculia, 
+                    updated.dysgraphia, 
+                    updated.adhd,
+                    updated.dyspraxia || 0,
+                    updated.auditoryProcessing || 0
+                );
+                updated.overall = maxRisk < 25 ? 'Low' : maxRisk < 50 ? 'Medium' : 'High';
+                
+                return updated;
+            });
 
             return newStats;
         });

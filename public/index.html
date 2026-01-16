@@ -2,190 +2,166 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bridge Builder Game</title>
+    <title>Defender Challenge: Skill Mastery</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        body { background: #020617; color: #f8fafc; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        #gameWindow { position: relative; width: 420px; height: 620px; background: #0f172a; border: 4px solid #38bdf8; border-radius: 15px; overflow: hidden; }
+        #bomber { position: absolute; bottom: 20px; left: 180px; font-size: 50px; transition: transform 0.2s, left 0.1s; z-index: 10; user-select: none; }
+        .ball { position: absolute; width: 35px; height: 35px; background: radial-gradient(circle, #f43f5e, #881337); border-radius: 50%; box-shadow: 0 0 10px #f43f5e; }
+        .bullet { position: absolute; width: 5px; height: 15px; background: #22d3ee; border-radius: 2px; box-shadow: 0 0 8px #22d3ee; }
         
-        body {
-            font-family: 'Comic Sans MS', cursive, sans-serif;
-            background: linear-gradient(to bottom, #87CEEB 0%, #98D8C8 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
+        #taskOverlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; flex-direction: column; align-items: center; justify-content: center; }
+        .card { background: white; color: #1e293b; padding: 25px; border-radius: 15px; width: 85%; text-align: center; border: 4px solid #38bdf8; }
         
-        #gameContainer {
-            width: 90%;
-            max-width: 1200px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 20px;
-            padding: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-        
-        #gameCanvas {
-            width: 100%;
-            max-width: 800px;
-            height: 400px;
-            background: linear-gradient(to bottom, #87CEEB 0%, #90EE90 60%, #8B4513 100%);
-            border-radius: 10px;
-            position: relative;
-            margin: 20px auto;
-            overflow: hidden;
-        }
-        
-        #character {
-            position: absolute;
-            bottom: 20%;
-            left: 5%;
-            width: 60px;
-            height: 60px;
-            transition: left 1s ease-in-out;
-        }
-        
-        .bridge-plank {
-            position: absolute;
-            bottom: 20%;
-            width: 80px;
-            height: 10px;
-            background: #8B4513;
-            border: 2px solid #654321;
-        }
-        
-        #river {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 20%;
-            background: linear-gradient(to bottom, #4682B4, #1E90FF);
-            animation: wave 2s infinite;
-        }
-        
-        @keyframes wave {
-            0%, 100% { opacity: 0.8; }
-            50% { opacity: 1; }
-        }
-        
-        #taskPanel {
-            background: #FFF3E0;
-            padding: 20px;
-            border-radius: 10px;
-            margin: 20px auto;
-            max-width: 600px;
-            text-align: center;
-        }
-        
-        .task-question {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 20px;
-        }
-        
-        .answer-options button {
-            font-size: 18px;
-            padding: 15px 30px;
-            margin: 10px;
-            border: none;
-            border-radius: 10px;
-            background: #4CAF50;
-            color: white;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        .answer-options button:hover {
-            transform: scale(1.1);
-            background: #45a049;
-        }
-        
-        #score {
-            font-size: 24px;
-            font-weight: bold;
-            text-align: center;
-            color: #FF6B6B;
-            margin: 10px;
-        }
-        
-        #emotion-detector {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        
-        #webcam {
-            display: none;
-        }
-        
-        .privacy-notice {
-            background: #E8F5E9;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 10px auto;
-            max-width: 600px;
-            border-left: 4px solid #4CAF50;
-        }
-        
-        .privacy-notice h3 {
-            color: #2E7D32;
-            margin-bottom: 5px;
-        }
-        
-        .privacy-notice p {
-            color: #1B5E20;
-            font-size: 14px;
-        }
+        button { padding: 12px; margin: 8px; width: 100px; cursor: pointer; border: none; border-radius: 8px; background: #0ea5e9; color: white; font-weight: bold; }
+        #stats { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; color: #38bdf8; font-weight: bold; z-index: 20; }
+        .life-icon { color: #f43f5e; font-size: 20px; }
+        #finalScreen { display:none; text-align: center; }
     </style>
 </head>
 <body>
-    <div id="gameContainer">
-        <h1 style="text-align: center; color: #FF6B6B; margin-bottom: 10px;">🌉 Bridge Builder Adventure</h1>
-        
-        <div class="privacy-notice">
-            <h3>🔒 Privacy Protected</h3>
-            <p>All processing happens locally in your browser. No data sent to cloud.</p>
+
+    <div id="gameWindow">
+        <div id="stats">
+            <span id="livesText">Energy: <span class="life-icon">⚡⚡</span></span>
+            <span id="score">Score: 0</span>
         </div>
         
-        <div id="score">Bridge Progress: 0/10 planks</div>
+        <div id="bomber">🚀</div>
         
-        <div id="gameCanvas">
-            <div id="river"></div>
-            <div id="character">🧒</div>
-            <div id="emotion-detector">😐 Neutral</div>
-        </div>
-        
-        <div id="taskPanel">
-            <div class="task-question" id="question">Get ready to build the bridge!</div>
-            <div class="answer-options" id="answers"></div>
-            <button onclick="startGame()" id="startBtn" style="font-size: 20px; padding: 15px 40px; background: #FF6B6B;">Start Assessment</button>
-        </div>
-        
-        <div id="riskPanel" style="display: none; background: #FFF9C4; padding: 15px; border-radius: 10px; margin: 20px auto; max-width: 600px;">
-            <h3 style="text-align: center; color: #F57F17;">Real-time Risk Assessment</h3>
-            <div style="display: flex; justify-content: space-around; margin-top: 10px;">
-                <div id="dyslexiaRisk" style="font-weight: bold;">Dyslexia: 0%</div>
-                <div id="dyscalculiaRisk" style="font-weight: bold;">Dyscalculia: 0%</div>
-                <div id="dysgraphiaRisk" style="font-weight: bold;">Dysgraphia: 0%</div>
+        <div id="taskOverlay">
+            <div class="card" id="interactiveCard">
+                <div id="questionContainer">
+                    <h3 id="questionText">Question?</h3>
+                    <p>Solve to reboot systems:</p>
+                    <div id="answerButtons"></div>
+                </div>
+                <div id="finalScreen">
+                    <h2>Challenge Complete!</h2>
+                    <p id="reportText"></p>
+                    <button onclick="location.reload()" style="width:150px">Restart Game</button>
+                </div>
             </div>
         </div>
     </div>
-    
-    <video id="webcam" width="224" height="224" autoplay></video>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
-    <script src="detector.js"></script>
-    <script src="game.js"></script>
+
+    <script>
+        const game = document.getElementById('gameWindow');
+        const bomber = document.getElementById('bomber');
+        const overlay = document.getElementById('taskOverlay');
+        const qText = document.getElementById('questionText');
+        const btns = document.getElementById('answerButtons');
+        const livesDisplay = document.querySelector('.life-icon');
+
+        let bX = 180, isPaused = false, score = 0, lives = 2, spawnRate = 2000;
+        let results = []; 
+
+        // 1. Controls
+        window.addEventListener('keydown', (e) => {
+            if (isPaused) return;
+            if (e.key === "ArrowLeft" && bX > 10) { bX -= 25; bomber.style.transform = "rotate(-20deg)"; }
+            if (e.key === "ArrowRight" && bX < 350) { bX += 25; bomber.style.transform = "rotate(20deg)"; }
+            bomber.style.left = bX + "px";
+        });
+        window.addEventListener('keyup', () => bomber.style.transform = "rotate(0deg)");
+
+        // 2. Auto-Shooting
+        setInterval(() => {
+            if (isPaused) return;
+            const bullet = document.createElement('div');
+            bullet.className = 'bullet';
+            bullet.style.left = (bX + 22) + "px"; bullet.style.bottom = "70px";
+            game.appendChild(bullet);
+
+            let m = setInterval(() => {
+                if (isPaused) return;
+                let b = parseInt(bullet.style.bottom); bullet.style.bottom = (b + 10) + "px";
+                if (b > 620) { clearInterval(m); bullet.remove(); }
+                document.querySelectorAll('.ball').forEach(ball => {
+                    if (isColliding(bullet, ball)) { 
+                        ball.remove(); bullet.remove(); score += 10; 
+                        document.getElementById('score').innerText = "Score: " + score;
+                        clearInterval(m); 
+                    }
+                });
+            }, 20);
+        }, 400);
+
+        // 3. Spawning & Collision
+        function spawnLoop() {
+            if (!isPaused) {
+                const ball = document.createElement('div');
+                ball.className = 'ball';
+                ball.style.left = Math.random() * 370 + "px"; ball.style.top = "-40px";
+                game.appendChild(ball);
+
+                let f = setInterval(() => {
+                    if (isPaused) return;
+                    let t = parseInt(ball.style.top); ball.style.top = (t + 4) + "px";
+                    if (isColliding(ball, bomber)) { 
+                        ball.remove(); clearInterval(f); 
+                        handleLifeLoss(); 
+                    }
+                    if (t > 620) { clearInterval(f); ball.remove(); }
+                }, 30);
+            }
+            setTimeout(spawnLoop, spawnRate);
+        }
+        spawnLoop();
+
+        function isColliding(a, b) {
+            let aR = a.getBoundingClientRect(), bR = b.getBoundingClientRect();
+            return !(aR.top > bR.bottom || aR.bottom < bR.top || aR.right < bR.left || aR.left > bR.right);
+        }
+
+        // 4. Life & Question Logic (Skill Based)
+        const quiz = [
+            { q: "Logic: Red, Blue, Red, ?", o: ["Blue", "Green"], a: "Blue" },
+            { q: "Math: 4 + 4 = ?", o: ["8", "7"], a: "8" },
+            { q: "Pattern: 1, 2, 1, ?", o: ["2", "3"], a: "2" }
+        ];
+
+        function handleLifeLoss() {
+            isPaused = true;
+            lives--;
+            livesDisplay.innerText = "⚡".repeat(lives) + (lives < 2 ? "⚪" : "");
+            overlay.style.display = "flex";
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const q = quiz[Math.floor(Math.random() * quiz.length)];
+            qText.innerText = q.q;
+            btns.innerHTML = "";
+            q.o.forEach(opt => {
+                const b = document.createElement('button');
+                b.innerText = opt;
+                b.onclick = () => {
+                    results.push({ correct: opt === q.a });
+                    
+                    if (lives > 0) {
+                        overlay.style.display = "none";
+                        isPaused = false;
+                    } else {
+                        showFinalReport();
+                    }
+                };
+                btns.appendChild(b);
+            });
+        }
+
+        function showFinalReport() {
+            document.getElementById('questionContainer').style.display = "none";
+            document.getElementById('finalScreen').style.display = "block";
+            
+            let correctCount = results.filter(r => r.correct).length;
+            document.getElementById('reportText').innerHTML = `
+                <b>Final Score:</b> ${score}<br>
+                <b>Mental Agility:</b> ${correctCount} / 2 Tasks Solved<br><br>
+                <strong>Performance Summary:</strong><br>
+                ${correctCount === 2 ? "Outstanding! High level of focus and coordination." : "Good effort! Keep practicing to improve your speed and logic."}
+            `;
+        }
+    </script>
 </body>
 </html>

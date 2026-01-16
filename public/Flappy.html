@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Void Challenge: 2 Lives</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; color: white; font-family: 'Segoe UI', Arial; }
+        #info { position: absolute; top: 20px; left: 20px; font-size: 22px; font-weight: bold; }
+        canvas { display: block; margin: auto; background: #0a0a0a; border-bottom: 5px solid #222; }
+    </style>
+</head>
+<body>
+
+<div id="info">Lives: 2 | Black Holes: 0 / 3</div>
+<canvas id="gameCanvas" width="800" height="500"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+/* PLAYER */
+const player = {
+    x: 100,
+    y: 200,
+    width: 35,
+    height: 35,
+    velocityY: 0,
+    gravity: 0.25,
+    lift: -5.5,
+};
+
+let blocks = [];
+let blackHoles = [];
+let holesEntered = 0;
+let lives = 2;
+let gamePaused = false;
+let gameOver = false;
+let gameWon = false;
+let invincibilityFrames = 0; // To prevent instant double-death
+
+/* INPUT */
+window.addEventListener("keydown", e => {
+    if (e.code === "Space") {
+        if (gameOver || gameWon) {
+            resetGame();
+        } else if (!gamePaused) {
+            player.velocityY = player.lift;
+        }
+    }
+});
+
+function resetGame() {
+    player.y = 200;
+    player.velocityY = 0;
+    blocks = [];
+    blackHoles = [];
+    holesEntered = 0;
+    lives = 2;
+    gameOver = false;
+    gameWon = false;
+    gamePaused = false;
+    invincibilityFrames = 0;
+    updateUI();
+}
+
+function updateUI() {
+    document.getElementById("info").innerText = `Lives: ${lives} | Black Holes: ${holesEntered} / 3`;
+}
+
+function handleHit() {
+    if (invincibilityFrames > 0) return; // Ignore if already hit recently
+
+    lives--;
+    updateUI();
+    if (lives <= 0) {
+        gameOver = true;
+    } else {
+        invincibilityFrames = 60; // Approx 1 second of safety
+        player.velocityY = -2; // Small bump up
+    }
+}
+
+function askQuestion() {
+    const a = Math.floor(Math.random() * 10) + 1;
+    const b = Math.floor(Math.random() * 10) + 1;
+    const answer = prompt(`VOID CHALLENGE: What is ${a} + ${b}?`);
+    return parseInt(answer) === (a + b);
+}
+
+function rectCircleCollision(rect, circle) {
+    const distX = Math.abs(circle.x - rect.x - rect.width / 2);
+    const distY = Math.abs(circle.y - rect.y - rect.height / 2);
+    if (distX > (rect.width / 2 + circle.radius)) return false;
+    if (distY > (rect.height / 2 + circle.radius)) return false;
+    return true;
+}
+
+function update() {
+    if (gameOver || gameWon || gamePaused) return;
+
+    /* PHYSICS */
+    player.velocityY += player.gravity;
+    player.y += player.velocityY;
+
+    if (invincibilityFrames > 0) invincibilityFrames--;
+
+    /* BOUNDARIES */
+    if (player.y + player.height > 465 || player.y < 0) {
+        handleHit();
+        if (player.y < 0) player.y = 0;
+        if (player.y + player.height > 465) player.y = 465 - player.height;
+    }
+
+    /* SPAWNING */
+    if (Math.random() < 0.012) {
+        blocks.push({ x: canvas.width, y: Math.random() * 380 + 20, width: 40, height: 40 });
+    }
+    if (Math.random() < 0.006 && holesEntered < 3) {
+        blackHoles.push({ x: canvas.width, y: Math.random() * 300 + 100, radius: 28 });
+    }
+
+    /* MOVEMENT */
+    blocks.forEach(b => b.x -= 3.5);
+    blackHoles.forEach(h => h.x -= 3.5);
+
+    /* COLLISION: BLOCKS */
+    blocks.forEach(b => {
+        if (player.x < b.x + b.width &&
+            player.x + player.width > b.x &&
+            player.y < b.y + b.height &&
+            player.y + player.height > b.y) {
+            handleHit();
+        }
+    });
+
+    /* COLLISION: BLACK HOLES */
+    blackHoles.forEach((h, index) => {
+        if (rectCircleCollision(player, h)) {
+            gamePaused = true;
+            setTimeout(() => {
+                if (askQuestion()) {
+                    holesEntered++;
+                    updateUI();
+                    blackHoles.splice(index, 1);
+                    gamePaused = false;
+                    if (holesEntered >= 3) {
+                        gameWon = true;
+                    }
+                } else {
+                    handleHit();
+                    blackHoles.splice(index, 1);
+                    gamePaused = false;
+                }
+            }, 50);
+        }
+    });
+
+    blocks = blocks.filter(b => b.x > -50);
+    blackHoles = blackHoles.filter(h => h.x > -100);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#222";
+    ctx.fillRect(0, 465, canvas.width, 35);
+
+    // Player with flicker effect when hit
+    if (invincibilityFrames % 10 < 5) {
+        ctx.fillStyle = "#00ffcc";
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+        ctx.fillStyle = "black";
+        ctx.fillRect(player.x + 22, player.y + 8, 6, 6);
+    }
+
+    ctx.fillStyle = "#ff3333";
+    blocks.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+
+    blackHoles.forEach(h => {
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "black";
+        ctx.fill();
+        ctx.strokeStyle = "#bc00ff";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    });
+
+    if (gameOver || gameWon) {
+        ctx.fillStyle = "rgba(0,0,0,0.8)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.font = "bold 40px Arial";
+        ctx.fillText(gameWon ? "MISSION COMPLETE!" : "GAME OVER", canvas.width/2, 230);
+        ctx.font = "20px Arial";
+        ctx.fillText("Press Space to Restart", canvas.width/2, 280);
+        ctx.textAlign = "left";
+    }
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
