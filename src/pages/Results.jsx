@@ -16,35 +16,35 @@ const Results = () => {
     // Calculate all disease risks with 80% max cap
     const getAllDiseaseRisks = () => {
         const maxRisk = 80; // Maximum risk percentage
-        
+
         // Helper to cap risk at 80%
         const capRisk = (risk) => Math.min(risk, maxRisk);
-        
+
         // Calculate comprehensive risks from all game data if context risks are 0
         const calculateFromGames = () => {
             let dyslexiaRisk = learningDisabilityRisk.dyslexia || 0;
             let dyscalculiaRisk = learningDisabilityRisk.dyscalculia || 0;
             let adhdRisk = learningDisabilityRisk.adhd || 0;
             let dysgraphiaRisk = learningDisabilityRisk.dysgraphia || 0;
-            
+
             // If context has values, use them; otherwise calculate from games
             if (dyslexiaRisk === 0 && dyscalculiaRisk === 0 && adhdRisk === 0) {
                 // Fallback: Calculate from game performance
                 Object.entries(gameStats).forEach(([gameId, stats]) => {
                     if (stats.played && stats.score !== undefined) {
                         let gameRisk = 0;
-                        
+
                         // Grade-based risk
                         if (stats.grade === 'F') gameRisk = 50;
                         else if (stats.grade === 'C') gameRisk = 35;
                         else if (stats.grade === 'B') gameRisk = 20;
                         else if (stats.grade === 'A') gameRisk = 10;
-                        
+
                         // Score-based
                         if (stats.score < 50) gameRisk += 15;
                         else if (stats.score < 100) gameRisk += 10;
                         else if (stats.score < 150) gameRisk += 5;
-                        
+
                         // Map to disorders
                         if (gameId === 'lexicalLegends' || gameId === 'treasureHunter') {
                             dyslexiaRisk = Math.min(dyslexiaRisk + gameRisk, 80);
@@ -59,26 +59,26 @@ const Results = () => {
                         }
                     }
                 });
-                
+
                 // Add questionnaire risks
                 if (gameStats.questionnaire?.analysis) {
                     const q = gameStats.questionnaire.analysis;
                     if (q.dyslexiaScore >= 2) dyslexiaRisk = Math.min(dyslexiaRisk + 20, 80);
                     else if (q.dyslexiaScore >= 1) dyslexiaRisk = Math.min(dyslexiaRisk + 10, 80);
-                    
+
                     if (q.dyscalculiaScore >= 2) dyscalculiaRisk = Math.min(dyscalculiaRisk + 20, 80);
                     else if (q.dyscalculiaScore >= 1) dyscalculiaRisk = Math.min(dyscalculiaRisk + 10, 80);
-                    
+
                     if (q.adhdScore >= 2) adhdRisk = Math.min(adhdRisk + 20, 80);
                     else if (q.adhdScore >= 1) adhdRisk = Math.min(adhdRisk + 10, 80);
                 }
             }
-            
+
             return { dyslexiaRisk, dyscalculiaRisk, adhdRisk, dysgraphiaRisk };
         };
-        
+
         const calculatedRisks = calculateFromGames();
-        
+
         return [
             {
                 name: 'Dyslexia',
@@ -113,7 +113,7 @@ const Results = () => {
                     const focusScore = gameStats.focusFlight?.score || 0;
                     const voidScore = gameStats.voidChallenge?.score || 0;
                     const hasGoodAttention = focusScore > 300 || voidScore > 200;
-                    
+
                     if (hasGoodAttention) {
                         return Math.min(15, capRisk(calculatedRisks.adhdRisk));
                     }
@@ -182,21 +182,25 @@ const Results = () => {
         color: d.color
     }));
 
+    const ignoreGames = ['memoryQuest', 'warpExplorer', 'defenderChallenge', 'bridgeGame']; // Ignored/Removed games
+
     // Performance stats
     const performanceMetrics = [
         {
             label: 'Total Games Played',
-            value: Object.keys(gameStats).filter(k => gameStats[k].score !== undefined).length,
+            value: Object.entries(gameStats)
+                .filter(([k, stats]) => !ignoreGames.includes(k) && stats.played)
+                .length,
             icon: <Activity className="text-blue-400" />,
             color: 'blue'
         },
         {
             label: 'Average Score',
             value: Math.round(
-                Object.values(gameStats)
-                    .filter(g => g.score)
-                    .reduce((acc, g) => acc + g.score, 0) /
-                Object.values(gameStats).filter(g => g.score).length || 0
+                Object.entries(gameStats)
+                    .filter(([k, g]) => !ignoreGames.includes(k) && g.played && g.score)
+                    .reduce((acc, [k, g]) => acc + g.score, 0) /
+                Object.entries(gameStats).filter(([k, g]) => !ignoreGames.includes(k) && g.played && g.score).length || 0
             ),
             icon: <Award className="text-yellow-400" />,
             color: 'yellow'
@@ -238,19 +242,18 @@ const Results = () => {
                                 Comprehensive Assessment Report
                             </h1>
                             <p className="text-gray-300 text-lg">
-                                Student: <span className="text-white font-bold">{userProfile.name}</span> | 
-                                Age: <span className="text-white font-bold">{userProfile.age}</span> | 
+                                Student: <span className="text-white font-bold">{userProfile.name}</span> |
+                                Age: <span className="text-white font-bold">{userProfile.age}</span> |
                                 Grade: <span className="text-white font-bold">{userProfile.grade || 'N/A'}</span>
                             </p>
                         </div>
-                        <div className={`px-6 py-3 rounded-2xl font-bold text-lg border-2 ${
-                            highestRisk > 60 ? 'bg-red-500/20 text-red-300 border-red-500/50' :
+                        <div className={`px-6 py-3 rounded-2xl font-bold text-lg border-2 ${highestRisk > 60 ? 'bg-red-500/20 text-red-300 border-red-500/50' :
                             highestRisk > 40 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50' :
-                            'bg-green-500/20 text-green-300 border-green-500/50'
-                        }`}>
-                            {highestRisk > 60 ? '⚠️ HIGH RISK' : 
-                             highestRisk > 40 ? '⚡ MODERATE RISK' : 
-                             '✅ LOW RISK'}
+                                'bg-green-500/20 text-green-300 border-green-500/50'
+                            }`}>
+                            {highestRisk > 60 ? '⚠️ HIGH RISK' :
+                                highestRisk > 40 ? '⚡ MODERATE RISK' :
+                                    '✅ LOW RISK'}
                         </div>
                     </div>
                 </div>
@@ -285,7 +288,7 @@ const Results = () => {
                             Confidence Scale: 0-80% (Screening Tool)
                         </span>
                     </h2>
-                    
+
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {diseaseRisks.map((disease, i) => (
                             <motion.div
@@ -305,7 +308,7 @@ const Results = () => {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 {/* Risk Bar */}
                                 <div className="mb-3">
                                     <div className="flex justify-between items-center mb-2">
@@ -330,11 +333,10 @@ const Results = () => {
                                     <span className="text-xs px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
                                         Confidence: {disease.confidence}
                                     </span>
-                                    <span className={`text-xs px-3 py-1 rounded-full font-bold ${
-                                        disease.risk > 60 ? 'bg-red-500/20 text-red-300' :
+                                    <span className={`text-xs px-3 py-1 rounded-full font-bold ${disease.risk > 60 ? 'bg-red-500/20 text-red-300' :
                                         disease.risk > 40 ? 'bg-yellow-500/20 text-yellow-300' :
-                                        'bg-green-500/20 text-green-300'
-                                    }`}>
+                                            'bg-green-500/20 text-green-300'
+                                        }`}>
                                         {disease.risk > 60 ? 'HIGH' : disease.risk > 40 ? 'MODERATE' : 'LOW'}
                                     </span>
                                 </div>
@@ -366,15 +368,15 @@ const Results = () => {
                         <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={confidenceChartData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                                <XAxis 
-                                    dataKey="name" 
-                                    tick={{ fill: '#94a3b8', fontSize: 12 }} 
+                                <XAxis
+                                    dataKey="name"
+                                    tick={{ fill: '#94a3b8', fontSize: 12 }}
                                     angle={-45}
                                     textAnchor="end"
                                     height={80}
                                 />
-                                <YAxis 
-                                    tick={{ fill: '#94a3b8' }} 
+                                <YAxis
+                                    tick={{ fill: '#94a3b8' }}
                                     domain={[0, 80]}
                                     label={{ value: 'Risk %', angle: -90, position: 'insideLeft', fill: '#94a3b8' }}
                                 />
@@ -441,10 +443,9 @@ const Results = () => {
                             </div>
                             <div className="bg-black/40 p-6 rounded-xl">
                                 <span className="text-gray-400 text-sm block mb-2">Overall Risk</span>
-                                <span className={`text-4xl font-bold ${
-                                    learningDisabilityRisk.overall === 'High' ? 'text-red-400' :
+                                <span className={`text-4xl font-bold ${learningDisabilityRisk.overall === 'High' ? 'text-red-400' :
                                     learningDisabilityRisk.overall === 'Medium' ? 'text-yellow-400' : 'text-green-400'
-                                }`}>{learningDisabilityRisk.overall || 'Low'}</span>
+                                    }`}>{learningDisabilityRisk.overall || 'Low'}</span>
                                 <p className="text-xs text-gray-500 mt-2">Aggregate assessment</p>
                             </div>
                         </div>
@@ -456,27 +457,49 @@ const Results = () => {
                     <h3 className="text-2xl font-bold text-white mb-6">Individual Game Performance</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {Object.entries(gameStats).map(([gameName, stats]) => (
-                            stats.score !== undefined && (
-                                <div key={gameName} className="bg-black/40 p-5 rounded-xl border border-white/5">
-                                    <h4 className="text-gray-400 text-sm mb-2 uppercase tracking-wider">
+                            stats.played && (
+                                <div key={gameName} className="bg-black/40 p-5 rounded-xl border border-white/5 hover:border-white/20 transition-colors">
+                                    <h4 className="text-gray-400 text-sm mb-3 uppercase tracking-wider font-bold border-b border-white/5 pb-2">
                                         {gameName.replace(/([A-Z])/g, ' $1').trim()}
                                     </h4>
-                                    <div className="flex justify-between items-end mb-2">
-                                        <span className="text-3xl font-bold text-white">{stats.score}</span>
-                                        <span className={`text-xl font-bold px-2 py-1 rounded ${
-                                            stats.grade === 'S' || stats.grade === 'A' ? 'bg-green-500/20 text-green-400' :
-                                            stats.grade === 'B' ? 'bg-blue-500/20 text-blue-400' :
-                                            stats.grade === 'C' ? 'bg-yellow-500/20 text-yellow-400' :
-                                            'bg-red-500/20 text-red-400'
-                                        }`}>
-                                            {stats.grade || 'N/A'}
-                                        </span>
-                                    </div>
-                                    {stats.correct !== undefined && (
-                                        <div className="text-xs text-gray-500">
-                                            ✓ {stats.correct} correct | ✗ {stats.incorrect} wrong
+                                    <div className="flex justify-between items-end mb-4">
+                                        <div>
+                                            <div className="text-xs text-gray-500 mb-1">Score</div>
+                                            <span className="text-3xl font-bold text-white">{stats.score}</span>
                                         </div>
-                                    )}
+                                        <div className="text-right">
+                                            <div className="text-xs text-gray-500 mb-1">Grade</div>
+                                            <span className={`text-xl font-bold px-3 py-1 rounded-lg ${stats.grade === 'S' || stats.grade === 'A' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                                stats.grade === 'B' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                                    stats.grade === 'C' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                                                        'bg-red-500/20 text-red-400 border border-red-500/30'
+                                                }`}>
+                                                {stats.grade || 'N/A'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Stats Grid */}
+                                    <div className="space-y-2 bg-black/20 p-3 rounded-lg">
+                                        {(stats.correct !== undefined || stats.incorrect !== undefined) && (
+                                            <div className="flex justify-between text-sm border-b border-white/5 pb-2 mb-2">
+                                                <span className="text-green-400">✓ {stats.correct ?? 0} Correct</span>
+                                                <span className="text-red-400">✗ {stats.incorrect ?? 0} Wrong</span>
+                                            </div>
+                                        )}
+
+                                        {/* Detailed Metrics */}
+                                        {stats.metrics && (
+                                            <div className="grid grid-cols-2 gap-y-1 gap-x-2 text-xs text-gray-400">
+                                                {Object.entries(stats.metrics).map(([key, value]) => (
+                                                    <div key={key} className="flex justify-between">
+                                                        <span className="capitalize opacity-70">{key.replace(/([A-Z])/g, ' $1').toLowerCase()}:</span>
+                                                        <span className="font-mono text-white">{value}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )
                         ))}
@@ -489,8 +512,8 @@ const Results = () => {
                     <div>
                         <h4 className="text-yellow-300 font-bold mb-2">Important Disclaimer</h4>
                         <p className="text-gray-300 text-sm leading-relaxed">
-                            This assessment is a screening tool designed for educational purposes only and does not constitute a medical or clinical diagnosis. 
-                            The confidence scores (max 80%) reflect the system's analytical limitations. For accurate diagnosis and intervention, 
+                            This assessment is a screening tool designed for educational purposes only and does not constitute a medical or clinical diagnosis.
+                            The confidence scores (max 80%) reflect the system's analytical limitations. For accurate diagnosis and intervention,
                             please consult with qualified healthcare professionals including educational psychologists, pediatricians, or learning specialists.
                         </p>
                     </div>

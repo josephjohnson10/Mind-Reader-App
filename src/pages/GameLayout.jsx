@@ -37,17 +37,17 @@ const GameLayout = () => {
             case 'number-ninja':
                 return <NumberNinja />;
             case 'void-challenge':
-                return <HTMLGameWrapper gameId="voidChallenge" htmlContent={voidChallengeHTML} nextGame="memory-quest" />;
-            case 'memory-quest':
-                return <HTMLGameWrapper gameId="memoryQuest" htmlContent={memoryQuestHTML} nextGame="warp-explorer" />;
-            case 'warp-explorer':
-                return <HTMLGameWrapper gameId="warpExplorer" htmlContent={warpExplorerHTML} nextGame="bridge-game" />;
-            case 'bridge-game':
-                return <HTMLGameWrapper gameId="bridgeGame" htmlContent={bridgeGameHTML} nextGame="treasure-hunter" />;
+                return <HTMLGameWrapper key="void" gameId="voidChallenge" htmlContent={voidChallengeHTML} nextGame="treasure-hunter" />;
+            // case 'memory-quest': REMOVED
+            //    return <HTMLGameWrapper key="memory" gameId="memoryQuest" htmlContent={memoryQuestHTML} nextGame="warp-explorer" />;
+            // case 'warp-explorer': REMOVED
+            //    return <HTMLGameWrapper key="warp" gameId="warpExplorer" htmlContent={warpExplorerHTML} nextGame="bridge-game" />;
+            // case 'bridge-game': REMOVED
+            //    return <HTMLGameWrapper key="bridge" gameId="bridgeGame" htmlContent={bridgeGameHTML} nextGame="treasure-hunter" />;
             case 'treasure-hunter':
-                return <HTMLGameWrapper gameId="treasureHunter" htmlContent={treasureHunterHTML} nextGame="defender-challenge" />;
-            case 'defender-challenge':
-                return <HTMLGameWrapper gameId="defenderChallenge" htmlContent={defenderChallengeHTML} nextGame="matrix-reasoning" />;
+                return <HTMLGameWrapper key="treasure" gameId="treasureHunter" htmlContent={treasureHunterHTML} nextGame="matrix-reasoning" />;
+            // case 'defender-challenge': REMOVED
+            //    return <HTMLGameWrapper key="defender" gameId="defenderChallenge" htmlContent={defenderChallengeHTML} nextGame="matrix-reasoning" />;
             case 'matrix-reasoning':
                 return <MatrixReasoning />;
             case 'spatial-recall':
@@ -67,7 +67,7 @@ const GameLayout = () => {
                     <ArrowLeft className="mr-2" /> Back to Base
                 </button>
             </div>
-            
+
             {/* Emotion Indicator */}
             {emotionData.isActive && (
                 <div className="fixed top-4 right-4 z-50">
@@ -84,7 +84,7 @@ const GameLayout = () => {
                     </div>
                 </div>
             )}
-            
+
             <div className="flex-1 p-4 max-w-screen-lg mx-auto w-full h-[80vh]">
                 {renderGame()}
             </div>

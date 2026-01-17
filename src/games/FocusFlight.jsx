@@ -18,9 +18,17 @@ const FocusFlight = () => {
     const requestRef = useRef();
     const lastSpawnTime = useRef(0);
     const playerYRef = useRef(0); // For immediate collision logic access
+    const gameStateRef = useRef('start'); // Fix stale closure
+
+    // Sync ref with state
+    useEffect(() => {
+        gameStateRef.current = gameState;
+    }, [gameState]);
 
     const startGame = () => {
         setGameState('playing');
+        gameStateRef.current = 'playing'; // Update ref immediately for the loop
+
         setScore(0);
         setTimeLeft(45);
         setObstacles([]);
@@ -28,11 +36,13 @@ const FocusFlight = () => {
         setPlayerY(0);
         playerYRef.current = 0;
         lastSpawnTime.current = Date.now();
+
+        if (requestRef.current) cancelAnimationFrame(requestRef.current);
         requestRef.current = requestAnimationFrame(gameLoop);
     };
 
     const jump = () => {
-        if (gameState !== 'playing' || playerYRef.current > 0) return;
+        if (gameStateRef.current !== 'playing' || playerYRef.current > 0) return;
         setPlayerY(1);
         playerYRef.current = 1;
         setMetrics(prev => ({ ...prev, jumps: prev.jumps + 1 }));
@@ -44,7 +54,7 @@ const FocusFlight = () => {
     };
 
     const gameLoop = (time) => {
-        if (gameState !== 'playing') {
+        if (gameStateRef.current !== 'playing') {
             cancelAnimationFrame(requestRef.current);
             return;
         }
@@ -107,9 +117,17 @@ const FocusFlight = () => {
 
     const endGame = () => {
         setGameState('ended');
+        gameStateRef.current = 'ended';
         cancelAnimationFrame(requestRef.current);
-        const analysis = analyzePerformance('focus-flight', metrics, userProfile.age);
-        updateGameResult('focusFlight', score, analysis.grade, metrics);
+        // Safety check for userProfile
+        if (userProfile) {
+            const analysis = analyzePerformance('focus-flight', metrics, userProfile.age);
+            updateGameResult('focusFlight', {
+                score,
+                grade: analysis.grade,
+                metrics
+            });
+        }
         setTimeout(() => navigate('/play/number-ninja'), 2000);
     };
 
